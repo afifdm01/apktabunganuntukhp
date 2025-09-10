@@ -89,6 +89,10 @@
     justify-content: space-between;
   }
 
+  .action-button a {
+    color: #f1f1f1;
+  }
+
   .action-button {
     background: rgba(255, 255, 255, 0.2);
     border: none;
@@ -101,6 +105,16 @@
     gap: 5px;
     cursor: pointer;
   }
+
+  .balance-actions .action-button a {
+  color: #f1f1f1;
+  text-decoration: none;
+}
+
+.balance-actions .action-button a:hover {
+  text-decoration: none; 
+}
+
 
   /* Main Content */
   .main-content {
@@ -333,10 +347,26 @@
   @media (max-width: 420px) {
     .app-container {
       max-width: 100%;
+      border-radius: 0;
+      box-shadow: none;
     }
 
     .balance-amount {
       font-size: 1.8rem;
+    }
+  }
+
+  @media (min-width: 421px) and (max-width: 768px) {
+    .app-container {
+      max-width: 600px;
+      border-radius: 20px;
+    }
+  }
+
+  @media (min-width: 769px) {
+    .app-container {
+      max-width: 800px;
+      border-radius: 20px;
     }
   }
 </style>
@@ -347,7 +377,7 @@
     <div class="header">
       <div class="app-bar">
         <div class="app-title">TabunganKu</div>
-        <div class="icon-button">
+        <div class="icon-button" title="Menu">
           <i class="fas fa-bars"></i>
         </div>
       </div>
@@ -356,8 +386,10 @@
         <div class="balance-label">Sisa Saldo Anda</div>
         <div class="balance-amount" id="saldo">Rp 0</div>
         <div class="balance-actions">
-          <button class="action-button">Lihat Detail</button>
-          <button class="action-button">
+          <button class="action-button" onclick="scrollToHistory()">
+            <a href="#history" style="pointer-events:none;">Lihat Detail</a>
+          </button>
+          <button class="action-button" id="btnBagikan">
             <i class="fas fa-share"></i> Bagikan
           </button>
         </div>
@@ -398,10 +430,10 @@
         </div>
       </div>
 
-      <div class="history-section">
+      <div class="history-section" id="history">
         <h2 class="section-title">
           Riwayat Transaksi
-          <button class="btn-hapus-semua" id="btnHapusSemua">
+          <button class="btn-hapus-semua" id="btnHapusSemua" title="Hapus Semua Transaksi">
             <i class="fas fa-trash-alt"></i> Hapus Semua
           </button>
         </h2>
@@ -416,7 +448,7 @@
 
     <!-- Footer -->
     <div class="footer">
-      <p>© 2025 TabunganKu - Kelola Keuangan dengan Mudah<br>By Kreator Dzaxz</p>
+      <p>© 2025 TabunganKu - By Kreator Dzaxz</p>
     </div>
   </div>
 
@@ -433,6 +465,7 @@
     const btnKurangi = document.getElementById('btnKurangi');
     const daftarHistori = document.getElementById('daftarHistori');
     const btnHapusSemua = document.getElementById('btnHapusSemua');
+    const btnBagikan = document.getElementById('btnBagikan');
 
     // Format angka ke Rupiah
     function formatRupiah(angka) {
@@ -487,96 +520,178 @@
           </div>
           <div class="history-amount">
             ${sign} ${formatRupiah(transaksi.jumlah)}
+            <button class="btn-hapus" title="Hapus Transaksi" data-id="${transaksi.id}">
+              <i class="fas fa-trash-alt"></i>
+            </button>
           </div>
-          <button class="btn-hapus" title="Hapus Transaksi" data-id="${transaksi.id}">
-            <i class="fas fa-trash-alt"></i>
-          </button>
         `;
 
         daftarHistori.appendChild(itemHistori);
       });
 
-      // Pasang event hapus untuk tiap tombol
-      const btnsHapus = daftarHistori.querySelectorAll('.btn-hapus');
-      btnsHapus.forEach((btn) =>
-        btn.addEventListener('click', () => {
-          const id = Number(btn.getAttribute('data-id'));
+      // Tambah event listener hapus tiap tombol hapus
+      const tombolHapus = daftarHistori.querySelectorAll('.btn-hapus');
+      tombolHapus.forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          const id = e.currentTarget.getAttribute('data-id');
           hapusTransaksi(id);
-        })
-      );
+        });
+      });
     }
 
-    // Tambah transaksi baru dan update saldo
-    function tambahTransaksi(jenis) {
-      const jumlah = Number(inputJumlah.value);
-      const keterangan = inputKeterangan.value.trim();
-
+    // Fungsi tambah transaksi
+    function tambahTransaksi(jumlah, keterangan) {
       if (jumlah <= 0) {
-        alert('Jumlah harus lebih dari 0!');
-        return;
+        alert('Jumlah harus lebih dari 0');
+        return false;
       }
-      if (keterangan === '') {
-        alert('Keterangan harus diisi!');
-        return;
+      if (!keterangan.trim()) {
+        alert('Keterangan tidak boleh kosong');
+        return false;
       }
 
-      const transaksiBaru = {
-        id: Date.now(),
-        jenis: jenis,
-        jumlah: jumlah,
-        keterangan: keterangan,
-        tanggal: new Date().toLocaleDateString('id-ID', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-        }),
+      const tanggal = new Date().toLocaleString('id-ID', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+      });
+
+      const transaksi = {
+        id: Date.now().toString(),
+        jenis: 'income',
+        jumlah,
+        keterangan,
+        tanggal,
       };
 
-      histori.push(transaksiBaru);
+      saldo += jumlah;
+      histori.unshift(transaksi);
+      perbaruiSaldo();
+      simpanHistori();
+      perbaruiTampilanHistori();
 
-      // Update saldo saat tambah transaksi
-      if (jenis === 'income') {
-        saldo += jumlah;
-      } else {
-        saldo -= jumlah;
+      return true;
+    }
+
+    // Fungsi kurangi transaksi (pengeluaran)
+    function kurangiTransaksi(jumlah, keterangan) {
+      if (jumlah <= 0) {
+        alert('Jumlah harus lebih dari 0');
+        return false;
+      }
+      if (!keterangan.trim()) {
+        alert('Keterangan tidak boleh kosong');
+        return false;
+      }
+      if (jumlah > saldo) {
+        alert('Saldo tidak cukup untuk pengeluaran ini');
+        return false;
       }
 
-      simpanHistori();
-      perbaruiTampilanHistori();
+      const tanggal = new Date().toLocaleString('id-ID', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+      });
+
+      const transaksi = {
+        id: Date.now().toString(),
+        jenis: 'expense',
+        jumlah,
+        keterangan,
+        tanggal,
+      };
+
+      saldo -= jumlah;
+      histori.unshift(transaksi);
       perbaruiSaldo();
+      simpanHistori();
+      perbaruiTampilanHistori();
 
-      inputJumlah.value = '';
-      inputKeterangan.value = '';
+      return true;
     }
 
-    // Hapus satu transaksi, saldo tetap sama
+    // Hapus transaksi berdasarkan id
     function hapusTransaksi(id) {
-      if (!confirm('Yakin ingin menghapus transaksi ini?')) return;
+      const index = histori.findIndex((item) => item.id === id);
+      if (index === -1) return;
 
-      histori = histori.filter((t) => t.id !== id);
+      // Update saldo sesuai jenis transaksi yang dihapus
+      if (histori[index].jenis === 'income') {
+        saldo -= histori[index].jumlah;
+      } else if (histori[index].jenis === 'expense') {
+        saldo += histori[index].jumlah;
+      }
+
+      histori.splice(index, 1);
+      perbaruiSaldo();
       simpanHistori();
       perbaruiTampilanHistori();
-      // saldo tidak berubah, jadi tidak perbaruiSaldo()
     }
 
-    // Hapus semua histori, saldo tetap sama
-    function hapusSemua() {
-      if (!confirm('Yakin ingin menghapus semua transaksi?')) return;
+    // Hapus semua transaksi
+    btnHapusSemua.addEventListener('click', () => {
+      const konfirmasi = confirm('Yakin ingin menghapus semua transaksi?');
+      if (!konfirmasi) return;
 
+      saldo = 0;
       histori = [];
+      perbaruiSaldo();
       simpanHistori();
       perbaruiTampilanHistori();
-      // saldo tetap sama, tidak diubah
+    });
+
+    // Scroll ke bagian history
+    function scrollToHistory() {
+      document.getElementById('history').scrollIntoView({ behavior: 'smooth' });
     }
 
-    // Event Listener tombol tambah dan kurangi
-    btnTambah.addEventListener('click', () => tambahTransaksi('income'));
-    btnKurangi.addEventListener('click', () => tambahTransaksi('expense'));
-    btnHapusSemua.addEventListener('click', hapusSemua);
+    // Event tombol tambah
+    btnTambah.addEventListener('click', () => {
+      const jumlah = Number(inputJumlah.value);
+      const keterangan = inputKeterangan.value;
 
-    // Inisialisasi tampilan saat halaman dibuka
-    perbaruiSaldo();
-    perbaruiTampilanHistori();
+      if (tambahTransaksi(jumlah, keterangan)) {
+        inputJumlah.value = '';
+        inputKeterangan.value = '';
+      }
+    });
+
+    // Event tombol kurangi
+    btnKurangi.addEventListener('click', () => {
+      const jumlah = Number(inputJumlah.value);
+      const keterangan = inputKeterangan.value;
+
+      if (kurangiTransaksi(jumlah, keterangan)) {
+        inputJumlah.value = '';
+        inputKeterangan.value = '';
+      }
+    });
+
+    // Bagikan saldo dan histori ke clipboard
+    btnBagikan.addEventListener('click', () => {
+      let teks = `Saldo saya saat ini: ${formatRupiah(saldo)}\nRiwayat Transaksi:\n`;
+      if (histori.length === 0) {
+        teks += 'Belum ada transaksi.';
+      } else {
+        histori.forEach((t) => {
+          const sign = t.jenis === 'income' ? '+' : '-';
+          teks += `${t.tanggal} | ${t.keterangan} | ${sign} ${formatRupiah(t.jumlah)}\n`;
+        });
+      }
+
+      navigator.clipboard.writeText(teks).then(() => {
+        alert('Data berhasil disalin! Silakan bagikan ke teman atau simpan.');
+      }).catch(() => {
+        alert('Gagal menyalin data. Coba lagi.');
+      });
+    });
+
+    // Inisialisasi saat load halaman
+    function init() {
+      perbaruiSaldo();
+      perbaruiTampilanHistori();
+    }
+
+    window.onload = init;
   </script>
 </body>
 </html>
